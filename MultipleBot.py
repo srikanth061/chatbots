@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import requests
 from datetime import datetime,timedelta,timezone
@@ -19,29 +20,17 @@ def send_query(query,option):
     return resp if option == "NPS" else resp.json().get("body")
 
 
-def display_chats(chats):
-    for chat in chats:
-    # col1,col2 = st.columns([4,6])
-    # with col2:
-        with st.chat_message(name = "user"):
-            st.markdown(chat["query"])
+def display_chats(chats,option):
+    for chat in getattr(chats, f"{option.lower()}_history", []):
+        with st.chat_message(chat["role"]):
+            st.markdown(chat["content"], unsafe_allow_html=True)
             st.markdown(f"<span style='font-size: smaller;'>{chat['time']}</span>", unsafe_allow_html=True)
-
-        # c1,c2 = st.columns([10,0])
-        # with c1:
-        with st.chat_message(name="assistant"):
-            st.markdown(chat['response'],unsafe_allow_html=True)
-            st.markdown(f"<span style='font-size: smaller;'>{chat['time']}</span>", unsafe_allow_html=True)
-
+    
 def chatbot():
-    st.session_state.sidebar_shown = False
     st.sidebar.title("Chat Bots")
-    option = st.sidebar.radio("Select a Bot", ["NPS", "Tax", "Investopedia"])
-    if "selected_option" not in st.session_state:
-        st.session_state.selected_option = option
-    elif st.session_state.selected_option != option:
-        st.session_state.selected_option = option
-        st.session_state.history = []
+    option = st.sidebar.radio("", ["NPS", "Tax", "Investopedia"])
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     header = st.container()
     if option == "NPS":
         header.title("Chatbot NPS")
@@ -71,22 +60,38 @@ def chatbot():
     )
 
     chats = st.session_state
-    if "history" not in chats:
-        chats.history = []
+    # if "nps_history" not in chats:
+    #     chats.nps_history = []
+    for bot in ["nps", "tax", "investopedia"]:
+        if f"{bot}_history" not in chats:
+            setattr(chats, f"{bot}_history", [])
     user_query = st.chat_input("Enter your question here...")
+    display_chats(chats,option)
     if user_query != None:
-        # current_time = datetime.now().strftime("%H:%M")
         UTC_time = datetime.now(timezone.utc)
         IST_offset = timedelta(hours=5, minutes=30)
         IST_time = UTC_time + IST_offset
         current_time = IST_time.strftime("%H:%M")
-        response = send_query(user_query,option)
-        cleaned_response = response.text.replace("\\n", "<br>").replace("\n", "").replace('"',"") if option == "NPS" else  response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
-        chats.history.append({"query": user_query, "response": cleaned_response, "time":current_time})
-    
-    display_chats(chats.history)
-
-    if len(chats.history)>=10:
-        chats.history.pop(0)
-        
+        with st.chat_message("user"):
+            st.markdown(user_query)
+            st.markdown(f"<span style='font-size: smaller;'>{current_time}</span>", unsafe_allow_html=True)
+            # chats.nps_history.append({"role":"user","content":user_query,"time":current_time})
+            getattr(chats, f"{option.lower()}_history").append({"role": "user", "content": user_query, "time": current_time})
+        with st.chat_message("assistant"):
+            type_message = st.empty()
+            type_message.write("typing...")
+            message_placeholder = st.empty()
+            full_response = ""
+            response=send_query(user_query,option)
+            type_message.empty() 
+            cleaned_response = response.text.replace("\\n", "<br>").replace("\n", "").replace('"',"") if option == "NPS" else  response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
+            for i in cleaned_response:
+                full_response+=i
+                time.sleep(0.002)
+                message_placeholder.markdown(full_response+" ",unsafe_allow_html=True)
+            message_placeholder.markdown(full_response,unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size: smaller;'>{current_time}</span>", unsafe_allow_html=True)
+            # chats.nps_history.append({"role":"assistant","content":cleaned_response,"time":current_time})
+            getattr(chats, f"{option.lower()}_history").append({"role": "assistant", "content": cleaned_response, "time": current_time})
+        print(chats,"/??????????????????????????????????????????")
 chatbot()
