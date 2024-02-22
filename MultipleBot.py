@@ -17,7 +17,8 @@ Query_url_INVESTOPEDIA = os.getenv("QUERY_URL_INVESTOPEDIA")
 def send_query(query,option):
     data = {"query": query}
     resp = requests.post(Query_url_NPS if option == "NPS" else Query_url_TAX if option == "Tax" else Query_url_INVESTOPEDIA,json = data)
-    return resp if option == "NPS" else resp.json().get("body")
+    # return resp if option == "NPS" else resp.json().get("body")
+    return resp.json().get("body")
 
 
 def display_chats(chats,option):
@@ -28,7 +29,7 @@ def display_chats(chats,option):
     
 def chatbot():
     st.sidebar.title("Chat Bots")
-    option = st.sidebar.radio("", ["NPS", "Tax", "Investopedia"])
+    option = st.sidebar.radio("", ["NPS", "Investopedia"])
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     header = st.container()
@@ -84,7 +85,8 @@ def chatbot():
             full_response = ""
             response=send_query(user_query,option)
             type_message.empty() 
-            cleaned_response = response.text.replace("\\n", "<br>").replace("\n", "").replace('"',"") if option == "NPS" else  response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
+            cleaned_response = response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
+            # cleaned_response = response.text.replace("\\n", "<br>").replace("\n", "").replace('"',"") if option == "NPS" else  response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
             for i in cleaned_response:
                 full_response+=i
                 time.sleep(0.002)
@@ -93,5 +95,4 @@ def chatbot():
             st.markdown(f"<span style='font-size: smaller;'>{current_time}</span>", unsafe_allow_html=True)
             # chats.nps_history.append({"role":"assistant","content":cleaned_response,"time":current_time})
             getattr(chats, f"{option.lower()}_history").append({"role": "assistant", "content": cleaned_response, "time": current_time})
-        print(chats,"/??????????????????????????????????????????")
 chatbot()
