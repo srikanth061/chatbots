@@ -29,7 +29,7 @@ def display_chats(chats,option):
     
 def chatbot():
     st.sidebar.title("Chat Bots")
-    option = st.sidebar.radio("", ["NPS", "Investopedia"])
+    option = st.sidebar.radio("", ["NPS", "Tax", "Investopedia"])
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     header = st.container()
