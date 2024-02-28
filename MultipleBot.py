@@ -37,14 +37,7 @@ def display_chats(chats,option):
         with st.chat_message(chat["role"]):
             st.markdown(chat["content"], unsafe_allow_html=True)
             st.markdown(f"<span style='font-size: smaller;'>{chat['time']}</span>", unsafe_allow_html=True)
-# def Authenticate():
-#     user_email = st.text_input("Email")
-#     user_password = st.text_input("Password", type="password")
-#     if st.button("Login"):
-#         if user_email == "test@123" and user_password == "pass":
-#             return True
-#         else:
-#             return False
+
 def chatbot():
     st.sidebar.title("Chat Bots")
     option = st.sidebar.radio("", ["NPS", "Tax", "Investopedia"])
@@ -102,6 +95,7 @@ def chatbot():
             response=respond_to_salutations(user_query,option)
             type_message.empty() 
             cleaned_response = response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
+            response_for_db = response.replace("\\n", "").replace("\n", "").replace('"',"")
             # cleaned_response = response.text.replace("\\n", "<br>").replace("\n", "").replace('"',"") if option == "NPS" else  response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
             for i in cleaned_response:
                 full_response+=i
@@ -111,21 +105,31 @@ def chatbot():
             st.markdown(f"<span style='font-size: smaller;'>{current_time}</span>", unsafe_allow_html=True)
             # chats.nps_history.append({"role":"assistant","content":cleaned_response,"time":current_time})
             getattr(chats, f"{option.lower()}_history").append({"role": "assistant", "content": cleaned_response, "time": current_time})
+        db = rf"chatbotDb.db"
+        conn = sqlite3.connect(db)
+        cursor = conn.cursor()
+        cursor.execute(f"INSERT INTO logs (email, question, answer, timestamp) VALUES (?,?,?,?)",(st.session_state["user_email"], user_query,response_for_db,IST_time))
+        conn.commit()
+
 
 def LoggedIn_Clicked(userName, password):
-    print(userName,password,"--------------------------------------------->>>>")
     db = rf"chatbotDb.db"
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM user WHERE email = ? AND password = ?",(userName,password))
     user = cursor.fetchone()
     conn.close()
-    print(user,"??????????????????????????????????????????")
-    if userName == user[0] and password == user[1]:
-        st.session_state['loggedIn'] = True
+    if user:
+        if userName == user[0] and password == user[1]:
+            if "user_email" not in st.session_state:
+                st.session_state["user_email"]=user[0]
+            st.session_state['loggedIn'] = True
+            
+        else:
+            st.session_state['loggedIn'] = False
+            st.error("Invalid user name or password")
     else:
-        st.session_state['loggedIn'] = False
-        st.error("Invalid user name or password")
+        st.error("user does't exist")
 
 def show_login_page():
     if st.session_state['loggedIn'] == False:
