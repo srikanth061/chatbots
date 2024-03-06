@@ -77,8 +77,10 @@ def chatbot():
     st.sidebar.title("Chat Bots")
     option = st.sidebar.radio("", ["NPS", "Tax", "Investopedia"])
     if st.sidebar.button("LOGOUT"):
-        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+        # streamlit_js_eval(js_expressions="parent.window.location.reload()")
         LocalStorage().deleteItem("logs")
+        time.sleep(1)
+        # streamlit_js_eval(js_expressions="parent.window.location.reload()")
         # st.experimental_rerun()
         # show_login_page()
     st.markdown("<br>", unsafe_allow_html=True)
@@ -206,7 +208,7 @@ def show_login_page():
     st.button ("Login", on_click=LoggedIn_Clicked, args= (userName, password))
 
 get_token = LocalStorage().getItem("logs")
-time.sleep(0.5)
+# time.sleep(0.5)
 if get_token and get_token["storage"] and get_token["storage"]["value"] == "logged":
     chatbot()
 else:
