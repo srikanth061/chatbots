@@ -5,11 +5,17 @@ from datetime import datetime,timedelta,timezone
 from dotenv import load_dotenv
 import os
 import sqlite3
+from streamlit_feedback import streamlit_feedback
+from streamlit_local_storage import LocalStorage
+import uuid
+import snowflake.connector as sn
+import streamlit as st
+from streamlit_js_eval import streamlit_js_eval
+    
+
 
 
 load_dotenv()
-
-# Query_url = os.getenv("QUERY_URL")
 Query_url_NPS = os.getenv("QUERY_URL_NPS")
 Query_url_TAX = os.getenv("QUERY_URL_TAX")
 Query_url_INVESTOPEDIA = os.getenv("QUERY_URL_INVESTOPEDIA")
@@ -28,19 +34,53 @@ def respond_to_salutations(question,option):
 def send_query(query,option):
     data = {"query": query}
     resp = requests.post(Query_url_NPS if option == "NPS" else Query_url_TAX if option == "Tax" else Query_url_INVESTOPEDIA,json = data)
-    # return resp if option == "NPS" else resp.json().get("body"
     return resp.json().get("body")
 
 
 def display_chats(chats,option):
-    for chat in getattr(chats, f"{option.lower()}_history", []):
+    for index,chat in enumerate(getattr(chats, f"{option.lower()}_history", [])):
         with st.chat_message(chat["role"]):
             st.markdown(chat["content"], unsafe_allow_html=True)
             st.markdown(f"<span style='font-size: smaller;'>{chat['time']}</span>", unsafe_allow_html=True)
+       
+        if getattr(chats, f"{option.lower()}_history")[index]["role"]=="assistant":
+            c1,c2=st.columns([1,15])
+            with c1:
+                st.button("👍",key=index,on_click=reactions,args=(1,chat,option,"from_displaychats"))
+            with c2:
+                st.button("👎",key=index+1,on_click=reactions,args=(0,chat,option,"from_displaychats"))
+        
+def reactions(reaction,chats,option,flag):
+    # db = rf"chatbotDb.db"
+    # conn = sqlite3.connect(db)
+    # cursor = conn.cursor()
+    conn=sn.connect(
+        user=os.getenv("USER"),
+        password=os.getenv("PASSWORD"),
+        role=os.getenv("ROLE"),
+        schema=os.getenv("SCHEMA"),
+        account=os.getenv("ACCOUNT"),
+        database=os.getenv("DATABASE")
+    )    
+    cursor = conn.cursor()
+    if flag == "from_chatbot":
+        cursor.execute(f"UPDATE logs SET reaction = {reaction} WHERE ID = {getattr(chats, f'{option.lower()}_history')[-1]['message_id']}")
+    elif flag == "from_displaychats":
+        cursor.execute(f"UPDATE logs SET reaction = {reaction} WHERE ID = {chats['message_id']}")
 
+    
+    conn.commit()
+
+
+        
 def chatbot():
     st.sidebar.title("Chat Bots")
     option = st.sidebar.radio("", ["NPS", "Tax", "Investopedia"])
+    if st.sidebar.button("LOGOUT"):
+        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+        LocalStorage().deleteItem("logs")
+        # st.experimental_rerun()
+        # show_login_page()
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     header = st.container()
@@ -72,9 +112,11 @@ def chatbot():
     )
     
     chats = st.session_state
+
     for bot in ["nps", "tax", "investopedia"]:
         if f"{bot}_history" not in chats:
             setattr(chats, f"{bot}_history", [])
+
     user_query = st.chat_input("Enter your question here...")
     display_chats(chats,option)
     if user_query != None:
@@ -85,7 +127,6 @@ def chatbot():
         with st.chat_message("user"):
             st.markdown(user_query)
             st.markdown(f"<span style='font-size: smaller;'>{current_time}</span>", unsafe_allow_html=True)
-            # chats.nps_history.append({"role":"user","content":user_query,"time":current_time})
             getattr(chats, f"{option.lower()}_history").append({"role": "user", "content": user_query, "time": current_time})
         with st.chat_message("assistant"):
             type_message = st.empty()
@@ -96,55 +137,78 @@ def chatbot():
             type_message.empty() 
             cleaned_response = response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
             response_for_db = response.replace("\\n", "").replace("\n", "").replace('"',"")
-            # cleaned_response = response.text.replace("\\n", "<br>").replace("\n", "").replace('"',"") if option == "NPS" else  response.replace("\\n", "<br>").replace("\n", "").replace('"',"")
             for i in cleaned_response:
                 full_response+=i
                 time.sleep(0.002)
                 message_placeholder.markdown(full_response+" ",unsafe_allow_html=True)
             message_placeholder.markdown(full_response,unsafe_allow_html=True)
             st.markdown(f"<span style='font-size: smaller;'>{current_time}</span>", unsafe_allow_html=True)
-            # chats.nps_history.append({"role":"assistant","content":cleaned_response,"time":current_time})
             getattr(chats, f"{option.lower()}_history").append({"role": "assistant", "content": cleaned_response, "time": current_time})
-        db = rf"chatbotDb.db"
-        conn = sqlite3.connect(db)
+        c1,c2 = st.columns([1,15])
+        with c1:
+            st.button("👍",on_click=reactions, args=(1,chats,option,"from_chatbot"))
+        with c2:
+            st.button("👎",on_click=reactions, args=(0,chats,option,"from_chatbot"))
+        conn=sn.connect(
+        user=os.getenv("USER"),
+        password=os.getenv("PASSWORD"),
+        role=os.getenv("ROLE"),
+        schema=os.getenv("SCHEMA"),
+        account=os.getenv("ACCOUNT"),
+        database=os.getenv("DATABASE")
+        ) 
         cursor = conn.cursor()
-        cursor.execute(f"INSERT INTO logs (email, question, answer, timestamp) VALUES (?,?,?,?)",(st.session_state["user_email"], user_query,response_for_db,IST_time))
-        conn.commit()
+        cursor.execute(f"INSERT INTO logs (email, question, answer, timestamp) VALUES (%s,%s,%s,%s)",(st.session_state["user_email"], user_query,response_for_db,IST_time))
+        # cursor.execute(f"INSERT INTO logs (email, question, answer, timestamp) VALUES (?,?,?)",("test1", user_query,response_for_db,IST_time))
+        cursor.execute("SELECT MAX(id) FROM logs")
+        last_row_id = cursor.fetchone()[0]
+        print("Last inserted ID:", last_row_id)
+        print(last_row_id,"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
+        getattr(chats,f"{option.lower()}_history")[-1]["message_id"] = last_row_id
+
 
 
 def LoggedIn_Clicked(userName, password):
-    db = rf"chatbotDb.db"
-    conn = sqlite3.connect(db)
+    conn=sn.connect(
+    user=os.getenv("USER"),
+    password=os.getenv("PASSWORD"),
+    role=os.getenv("ROLE"),
+    schema=os.getenv("SCHEMA"),
+    account=os.getenv("ACCOUNT"),
+    database=os.getenv("DATABASE")
+)
+    print(os.getenv("ACCOUNT"),",,,,,,,,,,,,,,,,,,,,,,,") 
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM user WHERE email = ? AND password = ?",(userName,password))
-    user = cursor.fetchone()
+    cursor.execute("SELECT * FROM user WHERE email = %s AND password = %s",(userName,password))
+    USER = cursor.fetchone()
     conn.close()
-    if user:
-        if userName == user[0] and password == user[1]:
-            if "user_email" not in st.session_state:
-                st.session_state["user_email"]=user[0]
-            st.session_state['loggedIn'] = True
+    if USER:
+        if userName == USER[1] and password == USER[2]:
+            localS = LocalStorage()
+            localS.setItem(itemKey="logs",itemValue="logged")
             
+            if "user_email" not in st.session_state:
+                st.session_state["user_email"]=USER[1]
+            # if "user_id" not in st.session_state:
+            #     st.session_state["user_id"]=USER[0]
+            st.session_state['loggedIn'] = True
         else:
             st.session_state['loggedIn'] = False
             st.error("Invalid user name or password")
     else:
         st.error("user does't exist")
 
+
 def show_login_page():
-    if st.session_state['loggedIn'] == False:
-        userName = st.text_input (label="Email", value="", placeholder="Enter your user name")
-        password = st.text_input (label="Password", value="",placeholder="Enter password", type="password")
-        st.button ("Login", on_click=LoggedIn_Clicked, args= (userName, password))
+    # if st.session_state['loggedIn'] == False:
+    userName = st.text_input (label="Email", value="", placeholder="Enter your user name")
+    password = st.text_input (label="Password", value="",placeholder="Enter password", type="password")
+    st.button ("Login", on_click=LoggedIn_Clicked, args= (userName, password))
 
-
-if 'loggedIn' not in st.session_state:
-    st.session_state['loggedIn'] = False
-    show_login_page() 
+get_token = LocalStorage().getItem("logs")
+# time.sleep(1)
+if get_token and get_token["storage"] and get_token["storage"]["value"] == "logged":
+    chatbot()
 else:
-    if st.session_state['loggedIn']:
-        chatbot()    
-    else:
-        show_login_page()
-
+    show_login_page()
 
