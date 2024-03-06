@@ -206,7 +206,7 @@ def show_login_page():
     st.button ("Login", on_click=LoggedIn_Clicked, args= (userName, password))
 
 get_token = LocalStorage().getItem("logs")
-# time.sleep(1)
+time.sleep(0.5)
 if get_token and get_token["storage"] and get_token["storage"]["value"] == "logged":
     chatbot()
 else:
