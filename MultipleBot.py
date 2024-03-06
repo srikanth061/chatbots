@@ -77,12 +77,9 @@ def chatbot():
     st.sidebar.title("Chat Bots")
     option = st.sidebar.radio("", ["NPS", "Tax", "Investopedia"])
     if st.sidebar.button("LOGOUT"):
-        # streamlit_js_eval(js_expressions="parent.window.location.reload()")
         LocalStorage().deleteItem("logs")
-        time.sleep(1)
+        st.session_state.clear() 
         # streamlit_js_eval(js_expressions="parent.window.location.reload()")
-        # st.experimental_rerun()
-        # show_login_page()
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     header = st.container()
