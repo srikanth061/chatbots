@@ -49,7 +49,6 @@ def display_chats(chats,option):
                 st.button("👍",key=index,on_click=reactions,args=(1,chat,option,"from_displaychats"))
             with c2:
                 st.button("👎",key=index+1,on_click=reactions,args=(0,chat,option,"from_displaychats"))
-        
 def reactions(reaction,chats,option,flag):
     # db = rf"chatbotDb.db"
     # conn = sqlite3.connect(db)
@@ -72,12 +71,11 @@ def reactions(reaction,chats,option,flag):
         query = "UPDATE logs SET reaction = %s WHERE TO_VARCHAR(timestamp) = %s"
         parameters = (reaction, str(chats['ist_time']))
         cursor.execute(query, parameters)
+        # getattr(chats,f'{option.lower()}_history')["reaction"] = reaction
 
     
     conn.commit()
 
-
-print(st.session_state)      
 def chatbot():
     st.sidebar.title("Chat Bots")
     option = st.sidebar.radio("", ["NPS", "Tax", "Investopedia"])
@@ -127,7 +125,6 @@ def chatbot():
         UTC_time = datetime.now(timezone.utc)
         IST_offset = timedelta(hours=5, minutes=30)
         IST_time = UTC_time + IST_offset
-        print(IST_time,",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,")
         current_time = IST_time.strftime("%H:%M")
         with st.chat_message("user"):
             st.markdown(user_query)
@@ -229,14 +226,14 @@ def show_login_page():
 #     chatbot()
 # else:
 #     # show_login_page()
+
 get_token = LocalStorage().getItem("logs")
 if "user_email" not in st.session_state:
-        if get_token and get_token["storage"] and len(get_token["storage"]["value"])!=0:
-            st.session_state["user_email"]=get_token["storage"]["value"][1]
+    if get_token and get_token["storage"] and len(get_token["storage"]["value"])!=0:
+        st.session_state["user_email"]=get_token["storage"]["value"][1]
 if get_token and get_token["storage"] and len(get_token["storage"]["value"])!=0:
     chatbot()
 else:
     show_login_page()
 
     
-
