@@ -11,6 +11,7 @@ import uuid
 import snowflake.connector as sn
 import streamlit as st
 from streamlit_js_eval import streamlit_js_eval
+from nanoid import generate
     
 
 
@@ -165,7 +166,7 @@ def chatbot():
         ) 
         cursor = conn.cursor()
         
-        cursor.execute(f"INSERT INTO logs (email, question, answer, timestamp) VALUES (%s,%s,%s,%s)",(st.session_state["user_email"], user_query,response_for_db,IST_time))
+        cursor.execute(f"INSERT INTO logs (email, question, answer, timestamp,session_id) VALUES (%s,%s,%s,%s,%s)",(st.session_state["user_email"], user_query,response_for_db,IST_time,st.session_state["session_id"]))
         # cursor.execute(f"INSERT INTO logs (email, question, answer, timestamp) VALUES (%s,%s,%s,%s)",(user, user_query,response_for_db,IST_time))
         # cursor.execute(f"INSERT INTO logs (email, question, answer, timestamp) VALUES (?,?,?)",("test1", user_query,response_for_db,IST_time))
         # cursor.execute("SELECT MAX(id) FROM logs")
@@ -194,6 +195,8 @@ def LoggedIn_Clicked(userName, password):
             localS = LocalStorage()
             # localS.setItem(itemKey="session",itemValue=str(uuid.uuid4()))
             session_id = str(uuid.uuid4())
+            # session_id = generate(size=10)
+            # print(session_id,"////////////////////")
             localS.setItem(itemKey="logs",itemValue=[session_id,USER[1]])
             
             # if "user_email" not in st.session_state:
@@ -231,6 +234,9 @@ get_token = LocalStorage().getItem("logs")
 if "user_email" not in st.session_state:
     if get_token and get_token["storage"] and len(get_token["storage"]["value"])!=0:
         st.session_state["user_email"]=get_token["storage"]["value"][1]
+if "session_id" not in st.session_state:
+    if get_token and get_token["storage"] and len(get_token["storage"]["value"])!=0:
+        st.session_state["session_id"]=get_token["storage"]["value"][0]
 if get_token and get_token["storage"] and len(get_token["storage"]["value"])!=0:
     chatbot()
 else:
